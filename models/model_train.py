@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras.layers import Dense, Flatten, BatchNormalization, Activation
+from tensorflow.keras.layers import Dense, Flatten, BatchNormalization, Activation, AlphaDropout
 
 from models.logdir import get_run_logdir
 from models.data_load import cifar10_dataload
@@ -50,7 +50,7 @@ def bn_model(n_hidden=20, n_neurons=100, learning_rate=1e-4, input_shape=[32, 32
 
 def selu_model(n_hidden=20, n_neurons=100, learning_rate=1e-4, input_shape=[32, 32, 3]):
     """
-    added batch normalization to the base model to compare learning curve.
+    replaced batch normalization with selu activation, and input data is self normalized to mean 0, std 1
     """
     model = keras.models.Sequential()
     model.add(Flatten(input_shape=input_shape))
@@ -62,13 +62,28 @@ def selu_model(n_hidden=20, n_neurons=100, learning_rate=1e-4, input_shape=[32, 
     return model
 
 
+def alphadrop(n_hidden=20, n_neurons=100, learning_rate=1e-4, input_shape=[32, 32, 3]):
+    """
+    added alphadrop to the selu model
+    """
+    model = keras.models.Sequential()
+    model.add(Flatten(input_shape=input_shape))
+    for layer in range(n_hidden):
+        model.add(Dense(n_neurons, kernel_initializer='lecun_normal', activation='selu'))
+    model.add(AlphaDropout(rate=0.1))
+    model.add(Dense(10, activation='softmax'))
+    optimizer = keras.optimizers.Nadam(learning_rate)
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    return model
+
+
 if __name__ == '__main__':
 
-    model_selected = selu_model
+    model_selected = alphadrop
 
     X_train, y_train, X_valid, y_valid, X_test, y_test = cifar10_dataload()
 
-    if model_selected == selu_model:
+    if model_selected == alphadrop or selu_model:
         X_train, X_valid, X_test = data_scaling(X_train, X_valid, X_test)
 
     model = model_selected()
